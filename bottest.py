@@ -2,7 +2,7 @@ import requests
 import vk_api
 import csv
 import json
-tokken = 'efa09c7b7371a14ba052f13b029e36302d9e572e51af35e1634b46c21ea503ea3de33d04fb591fd5342ad'
+tokken = 'inert yours token'
 session = vk_api.VkApi(token = tokken)
 vk = session.get_api()
 
