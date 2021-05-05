@@ -1,13 +1,11 @@
 from vosk import Model, KaldiRecognizer
-from multiprocessing.dummy import Pool
 import sys
 import os
-import wave
+import scipy.io.wavfile as siw
 import json
 import pyaudio
 import pyttsx3
 import speech_recognition as sr
-import os
 import time
 import random
 from fuzzywuzzy import fuzz
@@ -15,9 +13,20 @@ import datetime
 import webbrowser
 import pyautogui
 import urllib.request
-from bottest import sendmes
-
+from pydub import AudioSegment
+from pydub.playback import play
 import win32com.client
+from vksendmessage import sendmes
+import pygame
+from pygame.locals import *
+import win32api
+import win32con
+import win32gui
+from threading import Thread
+import numpy as np
+import wave
+from wifi import is_internet_available, get_download_speed
+from weatherreport import get_weather
 
 model = Model("model")
 rec = KaldiRecognizer(model, 16000)
@@ -26,6 +35,26 @@ p = pyaudio.PyAudio()
 stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8000)
 stream.start_stream()
 speak_engine = pyttsx3.init()
+os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (1501,716)
+pygame.init()
+screen = pygame.display.set_mode((400, 400),pygame.NOFRAME)
+fuchsia = (255, 0, 128)
+hwnd = pygame.display.get_wm_info()["window"]
+win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE,
+                       win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_LAYERED)
+win32gui.SetLayeredWindowAttributes(hwnd, win32api.RGB(*fuchsia), 0, win32con.LWA_COLORKEY)
+win32gui.SetWindowPos(pygame.display.get_wm_info()['window'], -1, 1501, 716, 0, 0, 0x0001)
+mainClock = pygame.time.Clock()
+#pygame.init()
+pygame.display.set_caption('')
+infoObject = pygame.display.Info()
+screen_w = int(infoObject.current_w/2)
+screen_h = int(infoObject.current_w/2)
+screen.fill(fuchsia) 
+mx = screen_w
+my = screen_h
+cent = mx,my
+#pygame.draw.circle(screen, (0, random.randint(128, 255), 255),center=cent, radius=1)
 speak_engine.setProperty('voice', 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_RU-RU_IRINA_11.0')
 
 opts = {
@@ -38,17 +67,86 @@ opts = {
         "radio": ('включи радио','радио'),
         "jokes": ('анекдот','рассмеши меня','ты знаешь анекдоты'),
         "serch":('поисковый запрос','поиск'),   
-        "mus":('найди мне песню','найди мне музыку','песня','музыка','найди песню','найди музыку','включи мне песню','включи мне музыку','включи песню','включи музыку','включи'),
-        "sendmes":("Отправь сообщение","сообщение"),
-        "coin":("подбрось монетку","кинь монетку")
+        "mus":('найди мне песню','найди мне музыку','песня','музыка','найди песню','найди музыку','включи мне песню','включи мне музыку','включи песню','включи музыку'),
+        "sendmes":('отправь сообщение','сообщение'),
+        "coin":('подбрось монетку','кинь монетку'),
+        "speed":('скорость интернета','проверь интернет'),
+        "about":('расскажи о себе','что ты умеешь','какие у тебя функции'),
+        "weather":('погода','скажи погоду','прогноз погоды'),
+        "abort":('ничего','не надо','отмена')
     }
 }
 
+
+def circlevis(data):
+    i = 0
+    while i < len(data):
+        pygame.event.pump() #для работы визуализации в фоне. Запоминает последнее состояние визуализации
+        mx = screen_w
+        my = screen_h
+        cent = mx,my
+        if i + 700 < len(data):
+            i += 700
+        elif i + 700 > len(data):
+            pygame.display.update()
+            mainClock.tick(30)
+            break
+        screen.fill(fuchsia) 
+       
+        # rad = random.randint(10,35)
+        # rad /= 2
+        circ = pygame.draw.circle(screen, (0, 255, 255),center=cent, radius=5+np.average(np.abs(data[i]))/150)
+        circ = pygame.draw.circle(screen, (0, 200, 255),center=cent, radius=6+np.average(np.abs(data[i]))/200)
+        circ = pygame.draw.circle(screen, (0, 180, 255),center=cent, radius=7+np.average(np.abs(data[i]))/250)
+        circ = pygame.draw.circle(screen, (0, 150, 255),center=cent, radius=8+np.average(np.abs(data[i]))/300)
+        circ = pygame.draw.circle(screen, (0, 128, 255),center=cent, radius=9+np.average(np.abs(data[i]))/350)
+
+        #time.sleep(0.05)
+        pygame.display.update()
+        mainClock.tick(30)
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            # if event.type == KEYDOWN:
+            #     if event.key == K_ESCAPE:
+            #         pygame.quit()
+            #         sys.exit()
+    circ = pygame.draw.circle(screen, (0, 220, 255),center=cent, radius=9)
+    circ = pygame.draw.circle(screen, (0, 100, 255),center=cent, radius=5)
+    pygame.display.update()
+    mainClock.tick(30)
+
 def speak(what):
+
     print( what )
-    speak_engine.say( what )
+    speak_engine.save_to_file(what, "what.wav")
     speak_engine.runAndWait()
-    speak_engine.stop()
+    pygame.mixer.music.load("what.wav")
+    pygame.mixer.music.set_volume(100)
+    spf = wave.open("what.wav", "rb")
+    signal = spf.readframes(-1)
+    signal = np.frombuffer(signal, np.int16)
+    thread1 = Thread(target = pygame.mixer.music.play(0))
+    thread2 = Thread(target = circlevis(signal)) #отрисовка кружочка
+    thread1.start()
+    thread2.start()
+    spf.close()
+    while True:
+        if pygame.mixer.music.get_busy() == False:
+            pygame.mixer.music.unload()
+            os.remove("what.wav")
+            break
+    
+    # speak_engine.say( what )
+    # speak_engine.runAndWait() #пиздаболка
+    # speak_engine.stop()
+
+
+    #speak_engine.runAndWait()
+    #asyncio.run(circlevis(len(what)*2))
+    
+
 
 def recognize_cmd(cmd):
     RC = {'cmd': '', 'percent': 0}
@@ -62,12 +160,36 @@ def recognize_cmd(cmd):
    
     return RC
 
-def execute_cmd(cmd,voice):
-    speak("хорошо")
+def execute_cmd(cmd):
+    now = datetime.datetime.now()   
+    # if cmd != "":
+    #     speak("хорошо")
     ch = 0
-    if cmd == 'ctime':
-    
-        now = datetime.datetime.now()
+    if cmd == 'about':
+        speak("Меня зовут Виви. Я голосовой помошник")
+        speak("Я могу сказать текущее время, рассказать анекдот, подкинуть монетку")
+        if is_internet_available():
+            speak("Проверить скорость соединения интернета. Отправить сообщение пользователю ВКонтакте, включить радио и найти то, что вы хотите при помощи Google или YouTube")
+        else:
+            speak("Мои полные возможности будут доступны после соединения с интернетом")
+    elif cmd == 'weather':
+        w = get_weather()
+        speak(w)
+    elif cmd == 'speed':
+        speak("Устанавливаю соединение с сервером")
+        now = datetime.datetime.now()   
+        speed = get_download_speed()
+        now2 = datetime.datetime.now()   
+
+        if speed == 0:
+            speak("Соединение с интернетом отсутствует")
+        else:
+            speak("Скорость соединения составляет "+ str(speed) +" мегабит в секунду")
+        print(now)
+        print(now2)
+
+
+    elif cmd == 'ctime':
         speak("Сейчас " + str(now.hour) + ":" + str(now.minute))
     elif cmd == 'coin':
         coin = random.randint(1,100)
@@ -75,15 +197,17 @@ def execute_cmd(cmd,voice):
         if coin == 50:
             speak("Выпало ребро")
         elif coin > 50:
-            speak("Выпал+а решка")
+            speak("Выпала решка")
         elif coin < 50:
             speak("Выпал орел")
         
 
     elif cmd == 'radio':
-       
+        if is_internet_available():
         #os.system("D:\\anison.m3u")
-        webbrowser.open_new('https://www.youtube.com/watch?v=5qap5aO4i9A')
+            webbrowser.open_new('https://www.youtube.com/watch?v=5qap5aO4i9A')
+        else:
+            speak("В связи с отсутствием интернета эта функция не доступна")
    
 
     elif cmd == 'jokes':
@@ -92,76 +216,115 @@ def execute_cmd(cmd,voice):
 
 
     elif cmd == 'mus':
-        speak("Скажите свой запрос для поиска на YouTube")
-        time.sleep(0.1)
-        try:
-            r = sr.Recognizer()
-            m = sr.Microphone(device_index = 1)
-            with m as source:
-                r.adjust_for_ambient_noise(source, duration=1)
-                audio1 = r.listen(source)
-                time.sleep(0.1)
-            voice = r.recognize_google(audio1, language = "ru-RU").lower()
+        if is_internet_available():
+            speak("Скажите свой запрос для поиска на YouTube")
+            tr = 1
+            while tr == 1:
+                try:
+                    print("Start")
+
+                    r = sr.Recognizer()
+                    m = sr.Microphone(device_index = 1)
+                    with m as source:
+                        r.adjust_for_ambient_noise(source, duration=1)
+                        audio1 = r.listen(source)
+                    voice = r.recognize_google(audio1, language = "ru-RU").lower()
+                    print(voice)
+                except sr.UnknownValueError:
+                    speak('Я вас не поняла, повторите')
+                    print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! YUTUBE")
+                    continue    
+                except sr.UnknownValueError as e:
+                    print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка YUTUBE")
+                    speak('Я вас не поняла, повторите') 
+                tr = 0    
+            webbrowser.open_new('https://www.youtube.com/results?search_query='+ voice)
+
+            print('command ')
             print(voice)
-        except sr.UnknownValueError:
-            print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! YUTUBE")
-        except sr.UnknownValueError as e:
-            print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка YUTUBE")
-        webbrowser.open_new('https://www.youtube.com/results?search_query='+ voice)
-        
-        print('command ')
-        print(voice)
-        pyautogui.press('tab')
-        time.sleep(1.5)
-        pyautogui.press('tab')
-        time.sleep(1.5) 
-        pyautogui.press('enter')
+            pyautogui.press('tab')
+            time.sleep(1.5)
+            pyautogui.press('tab')
+            time.sleep(1.5) 
+            pyautogui.press('enter')
+        else:
+            speak("В связи с отсутствием интернета эта функция не доступна")
 
         
     
     elif cmd == 'serch':
-        
-        speak("Скажите свой запрос")
-        try:
-            r = sr.Recognizer()
-            m = sr.Microphone(device_index = 1)
-            with m as source:
-                r.adjust_for_ambient_noise(source, duration=1)
-                audio1 = r.listen(source)
-                time.sleep(0.1)
-            voice = r.recognize_google(audio1, language = "ru-RU").lower()
-            print(voice)
-        except sr.UnknownValueError:
-            print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! SEARCH")
-        except sr.UnknownValueError as e:
-            print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка SEARCH")
-        #webbrowser.open_new_tab('https://yandex.ru/search/?lr=10735&text='+ voice)
-        webbrowser.open_new_tab('http://www.google.com/search?q='+ voice)
+        if is_internet_available():
+            tr = 1
+
+            while tr == 1:
+                speak("Скажите свой запрос")
+                try:
+                    r = sr.Recognizer()
+                    m = sr.Microphone(device_index = 1)
+                    with m as source:
+                        r.adjust_for_ambient_noise(source, duration=1)
+                        audio1 = r.listen(source)
+                        time.sleep(0.1)
+                    voice = r.recognize_google(audio1, language = "ru-RU").lower()
+                    print(voice)
+                except sr.UnknownValueError:
+                    print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! SEARCH")
+                    speak('Я вас не поняла, повторите')
+
+                except sr.UnknownValueError as e:
+                    print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка SEARCH")
+                tr = 0
+                #webbrowser.open_new_tab('https://yandex.ru/search/?lr=10735&text='+ voice)
+            webbrowser.open_new_tab('http://www.google.com/search?q='+ voice)
+        else:
+            speak("В связи с отсутствием интернета эта функция не доступна")
 
     elif cmd == 'sendmes':
-        for i in range(2):
-            if i == 0:
+        if is_internet_available():
+            tr = 1
+            while tr == 1:
+
                 speak("Назовите имя получателя")
-            else:
-                speak("Скажите текст письма")
-            try:
-                r = sr.Recognizer()
-                m = sr.Microphone(device_index = 1)
-                with m as source:
-                    r.adjust_for_ambient_noise(source, duration=1)
-                    audio1 = r.listen(source)
-                    time.sleep(0.1)
-                if i == 0:
-                    name = r.recognize_google(audio1, language = "ru-RU").lower()
-                    print(name)
-                else:
-                    msg = r.recognize_google(audio1, language = "ru-RU").lower()
-                    print(msg)
-            except sr.UnknownValueError:
-                print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! SEARCH")
-            except sr.UnknownValueError as e:
-                print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка SEARCH")
-        sendmes(name,msg)
+                try:
+                    print("start")
+                    r = sr.Recognizer()
+                    m = sr.Microphone(device_index = 1)
+                    with m as source:
+                        r.adjust_for_ambient_noise(source, duration=1)
+                        audio1 = r.listen(source)
+                        name = r.recognize_google(audio1, language = "ru-RU").lower()
+                        print(name)
+                        i = 1
+                except sr.UnknownValueError:
+                    print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! SENDMES")
+                    speak('Я вас не поняла, повторите')
+                    i = 0
+                except sr.UnknownValueError as e:
+                    print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка SENDMES")
+                    speak('Я вас не поняла, повторите')
+                    i = 0
+                if i != 0:    
+                    speak("Скажите текст письма")
+                    try:
+                        print("start")
+                        r = sr.Recognizer()
+                        m = sr.Microphone(device_index = 1)
+                        with m as source:
+                            r.adjust_for_ambient_noise(source, duration=1)
+                            audio1 = r.listen(source)
+                            msg = r.recognize_google(audio1, language = "ru-RU").lower()
+                            print(msg)
+                            tr = 0
+                    except sr.UnknownValueError:
+                        print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Голос не распознан! SENDMES")
+                        speak('Я вас не поняла, повторите')
+                    except sr.UnknownValueError as e:
+                        print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка SENDMES")
+                        speak('Я вас не поняла, повторите')
+
+            sendmes(name,msg)
+        else:
+            speak("В связи с отсутствием интернета эта функция не доступна")
         
    
     else:
@@ -183,7 +346,6 @@ def RecognizedSpeech():
             text = text + " " + jres['text']
             print("Accep...     "+text)
         if text != "":
-        #if "виви" in text:
             jres = json.loads(rec.FinalResult())
             text = text + " " + jres['text']
             print("end      "+text)
@@ -196,29 +358,30 @@ def RecognizedSpeech():
 def callback():
     ch = 1
     while ch == 1:
+
             speak("Я слушаю")
             voice = RecognizedSpeech()
-            time.sleep(0.1)
-            #if voice.startswith(opts["alias"]):
-                # обращаются
             cmd = voice
-
-                # for x in opts['alias']:
-                #     cmd = cmd.replace(x, "").strip()
             for x in opts['tbr']:
                 cmd = cmd.replace(x, "").strip()
-                # распознаем и выполняем команду
             cmd = recognize_cmd(cmd)
-            ch = execute_cmd(cmd['cmd'],voice)
-            #else:
-             #   print("Команда не распознана, извините")
-# p = Pool(20)
-# texts = p.map(recog, open(sys.argv[-1]).readlines())
-# print ("\n".join(texts))
+            ch = execute_cmd(cmd['cmd'],)
 def main():
-    speak("Добро пожаловать")
+
+    speak("Добро пожаловать. Я голосовой помошник Виви")
+    if is_internet_available():
+        speak("Обнаружено соединение с интернетом. Доступны все функции")
+    else:
+        speak("Соединение с интернетом не доступно. Перехожу в оффлайн режим")
+
     while True:
+        s = "start"
+        circlevis(s)
         text = RecognizedSpeech()
         if "виви" in text:
             callback()
 main()
+#добавить новость
+#Присутствует возможность интеграции нашего програмного по средством открытого апи различных систем типа умный дом. Например сяоми смарт хоум, амазон и тд
+#Мы уже используем открытое апи от вконтакте в будущем планиеруется интеграция с апи телеграма, ютуба, гугл и яндекс 
+#анализ голоса при помощи Wavelet 
