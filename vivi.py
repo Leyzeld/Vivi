@@ -13,8 +13,6 @@ import datetime
 import webbrowser
 import pyautogui
 import urllib.request
-from pydub import AudioSegment
-from pydub.playback import play
 import win32com.client
 from vksendmessage import sendmes
 import pygame
@@ -45,7 +43,6 @@ win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE,
 win32gui.SetLayeredWindowAttributes(hwnd, win32api.RGB(*fuchsia), 0, win32con.LWA_COLORKEY)
 win32gui.SetWindowPos(pygame.display.get_wm_info()['window'], -1, 1501, 716, 0, 0, 0x0001)
 mainClock = pygame.time.Clock()
-#pygame.init()
 pygame.display.set_caption('')
 infoObject = pygame.display.Info()
 screen_w = int(infoObject.current_w/2)
@@ -54,7 +51,6 @@ screen.fill(fuchsia)
 mx = screen_w
 my = screen_h
 cent = mx,my
-#pygame.draw.circle(screen, (0, random.randint(128, 255), 255),center=cent, radius=1)
 speak_engine.setProperty('voice', 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_RU-RU_IRINA_11.0')
 
 opts = {
@@ -73,7 +69,9 @@ opts = {
         "speed":('скорость интернета','проверь интернет'),
         "about":('расскажи о себе','что ты умеешь','какие у тебя функции'),
         "weather":('погода','скажи погоду','прогноз погоды'),
-        "abort":('ничего','не надо','отмена')
+        "abort":('ничего','не надо','отмена','не слушай'),
+        "pause":('пауза', 'поставь на паузу','продолжи воспроизведение'),
+        "meta":('скажи цель нашего проекта','цель проекта')
     }
 }
 
@@ -93,25 +91,18 @@ def circlevis(data):
             break
         screen.fill(fuchsia) 
        
-        # rad = random.randint(10,35)
-        # rad /= 2
         circ = pygame.draw.circle(screen, (0, 255, 255),center=cent, radius=5+np.average(np.abs(data[i]))/150)
         circ = pygame.draw.circle(screen, (0, 200, 255),center=cent, radius=6+np.average(np.abs(data[i]))/200)
         circ = pygame.draw.circle(screen, (0, 180, 255),center=cent, radius=7+np.average(np.abs(data[i]))/250)
         circ = pygame.draw.circle(screen, (0, 150, 255),center=cent, radius=8+np.average(np.abs(data[i]))/300)
         circ = pygame.draw.circle(screen, (0, 128, 255),center=cent, radius=9+np.average(np.abs(data[i]))/350)
 
-        #time.sleep(0.05)
         pygame.display.update()
         mainClock.tick(30)
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-            # if event.type == KEYDOWN:
-            #     if event.key == K_ESCAPE:
-            #         pygame.quit()
-            #         sys.exit()
     circ = pygame.draw.circle(screen, (0, 220, 255),center=cent, radius=9)
     circ = pygame.draw.circle(screen, (0, 100, 255),center=cent, radius=5)
     pygame.display.update()
@@ -137,15 +128,6 @@ def speak(what):
             pygame.mixer.music.unload()
             os.remove("what.wav")
             break
-    
-    # speak_engine.say( what )
-    # speak_engine.runAndWait() #пиздаболка
-    # speak_engine.stop()
-
-
-    #speak_engine.runAndWait()
-    #asyncio.run(circlevis(len(what)*2))
-    
 
 
 def recognize_cmd(cmd):
@@ -162,16 +144,20 @@ def recognize_cmd(cmd):
 
 def execute_cmd(cmd):
     now = datetime.datetime.now()   
-    # if cmd != "":
-    #     speak("хорошо")
     ch = 0
     if cmd == 'about':
         speak("Меня зовут Виви. Я голосовой помошник")
-        speak("Я могу сказать текущее время, рассказать анекдот, подкинуть монетку")
+        speak("Я могу сказать текущее время, рассказать анекдот, подкинуть монетку. Так же могу поставить видео на паузу или продолжить воспроизведение")
         if is_internet_available():
-            speak("Проверить скорость соединения интернета. Отправить сообщение пользователю ВКонтакте, включить радио и найти то, что вы хотите при помощи Google или YouTube")
+            speak("Проверить скорость соединения интернета, сказать прогноз погоды. Отправить сообщение пользователю ВКонтакте, включить радио и найти то, что вы хотите при помощи Google или YouTube")
         else:
             speak("Мои полные возможности будут доступны после соединения с интернетом")
+    elif cmd == 'pause':
+        pyautogui.press('stop')
+    elif cmd == "meta":
+        speak("Цель нашего проекта - облегчение использования современных технологий для пользователя путем использования нашего голосового помощника.")
+    elif cmd == 'abort':
+        return 0
     elif cmd == 'weather':
         w = get_weather()
         speak(w)
@@ -204,7 +190,6 @@ def execute_cmd(cmd):
 
     elif cmd == 'radio':
         if is_internet_available():
-        #os.system("D:\\anison.m3u")
             webbrowser.open_new('https://www.youtube.com/watch?v=5qap5aO4i9A')
         else:
             speak("В связи с отсутствием интернета эта функция не доступна")
@@ -247,6 +232,8 @@ def execute_cmd(cmd):
             pyautogui.press('tab')
             time.sleep(1.5) 
             pyautogui.press('enter')
+            time.sleep(1.5) 
+            pyautogui.press('f')    
         else:
             speak("В связи с отсутствием интернета эта функция не доступна")
 
@@ -274,8 +261,8 @@ def execute_cmd(cmd):
                 except sr.UnknownValueError as e:
                     print("[log "+str(now.hour) + ":" + str(now.minute)+ ":" + str(now.second)+"] Неизвестная ошибка SEARCH")
                 tr = 0
-                #webbrowser.open_new_tab('https://yandex.ru/search/?lr=10735&text='+ voice)
             webbrowser.open_new_tab('http://www.google.com/search?q='+ voice)
+            speak("Вот что мне удалось найти по запросу" + voice)
         else:
             speak("В связи с отсутствием интернета эта функция не доступна")
 
@@ -381,7 +368,3 @@ def main():
         if "виви" in text:
             callback()
 main()
-#добавить новость
-#Присутствует возможность интеграции нашего програмного по средством открытого апи различных систем типа умный дом. Например сяоми смарт хоум, амазон и тд
-#Мы уже используем открытое апи от вконтакте в будущем планиеруется интеграция с апи телеграма, ютуба, гугл и яндекс 
-#анализ голоса при помощи Wavelet 

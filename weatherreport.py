@@ -1,11 +1,12 @@
 import requests
 import json
-
+import geocoder
 def get_weather():
-    city = "Нижний Новгород"
-    url = 'http://api.openweathermap.org/data/2.5/weather?q={}&appid=2eee07cf500fbe8f88d62088090e7e29&units=metric&lang=RU'.format(city)
+    g = geocoder.ip('me')
+    url = 'http://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid=2eee07cf500fbe8f88d62088090e7e29&units=metric&lang=RU'.format(g.latlng[0],g.latlng[1])
     res = requests.get(url)
     data = res.json()
+    city = data['name']
     temperature = data['main']['temp']
     realtemp = data['main']['feels_like']
     weatherr = data['weather'][0]['description']
