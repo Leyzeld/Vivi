@@ -4,7 +4,7 @@ import csv
 import json
 from transliterate import translit
 import difflib
-tokken = 'efa09c7b7371a14ba052f13b029e36302d9e572e51af35e1634b46c21ea503ea3de33d04fb591fd5342ad'
+tokken = 'input_yours'
 session = vk_api.VkApi(token = tokken)
 vk = session.get_api()
 def  apifriends ():
