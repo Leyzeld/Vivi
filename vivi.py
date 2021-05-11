@@ -50,7 +50,13 @@ screen_h = int(infoObject.current_w/2)
 screen.fill(fuchsia) 
 mx = screen_w
 my = screen_h
-cent = mx,my
+cent = mx,
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREY = (200, 200, 200)
+ORANGE = (200, 100, 50)
+TRANS = (1, 1, 1)
+
 speak_engine.setProperty('voice', 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_RU-RU_IRINA_11.0')
 
 opts = {
@@ -71,10 +77,143 @@ opts = {
         "weather":('погода','скажи погоду','прогноз погоды'),
         "abort":('ничего','не надо','отмена','не слушай'),
         "pause":('пауза', 'поставь на паузу','продолжи воспроизведение'),
-        "meta":('скажи цель нашего проекта','цель проекта')
+        "meta":('скажи цель нашего проекта','цель проекта'),
+        "settings":('настройки','параметры','открой настройки')
     }
 }
+_red = 0
+_green = 128
+_blue = 255
+_volume = 0.5
 
+
+
+class Button():
+    def __init__(self, txt, location, bg=WHITE, fg=BLACK, size=(100, 45), font_name="calibri", font_size=16):
+        self.color = bg  
+        self.bg = bg  
+        self.fg = fg 
+        self.size = size
+        self.font = pygame.font.SysFont(font_name, font_size)
+        self.txt = txt
+        self.txt_surf = self.font.render(self.txt, 1, self.fg)
+        self.txt_rect = self.txt_surf.get_rect(center=[s//2 for s in self.size])
+        self.surface = pygame.surface.Surface(size)
+        self.rect = self.surface.get_rect(center=location)
+        #self.call_back_ = action
+    def draw(self):
+        self.mouseover()
+        self.surface.fill(self.bg)
+        self.surface.blit(self.txt_surf, self.txt_rect)
+        screen.blit(self.surface, self.rect)
+    def mouseover(self):
+        self.bg = self.color
+        pos = pygame.mouse.get_pos()
+        if self.rect.collidepoint(pos):
+            self.bg = GREY 
+    # def call_back(self):
+    #     self.call_back_()
+
+def button_save():
+    global _red, _green, _blue, _volume 
+    _red = r_slider.val
+    _green = g_slider.val
+    _blue = b_slider.val
+    _volume = v_volume.val
+    return False
+
+
+def mousebuttondown(pos):
+    if button_01.rect.collidepoint(pos):
+        return button_save()
+
+class Slider():
+    def __init__(self, name, val, maxi, mini, pos):
+        self.val = val  
+        self.maxi = maxi  
+        self.mini = mini  
+        self.xpos = 0  
+        self.ypos = pos
+        self.surf = pygame.surface.Surface((100, 50))
+        self.hit = False
+        font = pygame.font.SysFont("Verdana", 12)  
+        self.txt_surf = font.render(name, 1, BLACK)
+        self.txt_rect = self.txt_surf.get_rect(center=(50, 15))
+        self.surf.fill((100, 100, 100))
+        pygame.draw.rect(self.surf, GREY, [0, 0, 100, 50], 3)
+        pygame.draw.rect(self.surf, ORANGE, [10, 10, 80, 10], 0)
+        pygame.draw.rect(self.surf, WHITE, [10, 30, 80, 5], 0)
+        self.surf.blit(self.txt_surf, self.txt_rect) 
+        self.button_surf = pygame.surface.Surface((20, 20))
+        self.button_surf.fill(TRANS)
+        self.button_surf.set_colorkey(TRANS)
+        pygame.draw.circle(self.button_surf, BLACK, (10, 10), 6, 0)
+        pygame.draw.circle(self.button_surf, ORANGE, (10, 10), 4, 0)
+    def draw(self):
+        surf = self.surf.copy()
+        pos = (10+int((self.val-self.mini)/(self.maxi-self.mini)*80), 33)
+        self.button_rect = self.button_surf.get_rect(center=pos)
+        surf.blit(self.button_surf, self.button_rect)
+        self.button_rect.move_ip(self.xpos, self.ypos) 
+        screen.blit(surf, (self.xpos, self.ypos))
+    def move(self):
+        self.val = (pygame.mouse.get_pos()[0] - self.xpos - 10) / 80 * (self.maxi - self.mini) + self.mini
+        if self.val < self.mini:
+            self.val = self.mini
+        if self.val > self.maxi:
+            self.val = self.maxi
+
+button_01 = Button("Save", (50,269))
+r_slider = Slider("R", 0, 255, 0, 0)
+g_slider = Slider("G", 0, 255, 0, 60)
+b_slider = Slider("B", 0, 255, 0, 123)
+v_volume = Slider("Volume", 0.5, 1, 0, 186)
+
+def settings_vivi(r,g,b,v):
+    global r_slider, g_slider, b_slider, v_volume    
+    r_slider = Slider("R", r, 255, 0, 0)
+    g_slider = Slider("G", g, 255, 0, 60)
+    b_slider = Slider("B", b, 255, 0, 123)
+    v_volume = Slider("Volume", v, 1, 0, 186)
+    slides = [r_slider, g_slider, b_slider, v_volume]
+    
+    wait = True
+    while wait:
+        mx = screen_w
+        my = screen_h
+        cent = mx,my
+        screen.fill(fuchsia)
+        pygame.event.pump()
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                if button_01.rect.collidepoint(pos):
+                    wait = mousebuttondown(pos)
+
+                for s in slides:
+                    if s.button_rect.collidepoint(pos):
+                        s.hit = True
+            elif event.type == pygame.MOUSEBUTTONUP:
+                for s in slides:
+                    s.hit = False
+        for s in slides:
+            if s.hit:
+                s.move()
+        for s in slides:
+            s.draw() 
+        button_01.draw()
+
+        circ = pygame.draw.circle(screen, (r_slider.val, g_slider.val, b_slider.val),center=cent, radius=25)
+        circ = pygame.draw.circle(screen, (r_slider.val/1.2, g_slider.val/1.2, b_slider.val/1.2),center=cent, radius=20)
+        circ = pygame.draw.circle(screen, (r_slider.val/2, g_slider.val/2, b_slider.val/2),center=cent, radius=15)
+        circ = pygame.draw.circle(screen, (r_slider.val/3, g_slider.val/3, b_slider.val/3),center=cent, radius=10)
+        circ = pygame.draw.circle(screen, (r_slider.val/4, g_slider.val/4, b_slider.val/4),center=cent, radius=5)
+        pygame.display.update()
+        mainClock.tick(30)
+    
 
 def circlevis(data):
     i = 0
@@ -91,11 +230,11 @@ def circlevis(data):
             break
         screen.fill(fuchsia) 
        
-        circ = pygame.draw.circle(screen, (0, 255, 255),center=cent, radius=5+np.average(np.abs(data[i]))/150)
-        circ = pygame.draw.circle(screen, (0, 200, 255),center=cent, radius=6+np.average(np.abs(data[i]))/200)
-        circ = pygame.draw.circle(screen, (0, 180, 255),center=cent, radius=7+np.average(np.abs(data[i]))/250)
-        circ = pygame.draw.circle(screen, (0, 150, 255),center=cent, radius=8+np.average(np.abs(data[i]))/300)
-        circ = pygame.draw.circle(screen, (0, 128, 255),center=cent, radius=9+np.average(np.abs(data[i]))/350)
+        circ = pygame.draw.circle(screen, (_red, _green, _blue),center=cent, radius=9+np.average(np.abs(data[i]))/250)
+        circ = pygame.draw.circle(screen, (_red/1.2, _green/1.2, _blue/1.2),center=cent, radius=8+np.average(np.abs(data[i]))/400)
+        circ = pygame.draw.circle(screen, (_red/2, _green/2, _blue/2),center=cent, radius=7+np.average(np.abs(data[i]))/600)
+        circ = pygame.draw.circle(screen, (_red/3, _green/3, _blue/3),center=cent, radius=6+np.average(np.abs(data[i]))/800)
+        circ = pygame.draw.circle(screen, (_red/4, _green/4, _blue/4),center=cent, radius=5+np.average(np.abs(data[i]))/1000)
 
         pygame.display.update()
         mainClock.tick(30)
@@ -103,8 +242,8 @@ def circlevis(data):
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-    circ = pygame.draw.circle(screen, (0, 220, 255),center=cent, radius=9)
-    circ = pygame.draw.circle(screen, (0, 100, 255),center=cent, radius=5)
+    circ = pygame.draw.circle(screen, (_red, _green, _blue),center=cent, radius=9)
+    circ = pygame.draw.circle(screen, (_red/2,_green/2, _blue/2),center=cent, radius=5)
     pygame.display.update()
     mainClock.tick(30)
 
@@ -114,7 +253,7 @@ def speak(what):
     speak_engine.save_to_file(what, "what.wav")
     speak_engine.runAndWait()
     pygame.mixer.music.load("what.wav")
-    pygame.mixer.music.set_volume(100)
+    pygame.mixer.music.set_volume(_volume)
     spf = wave.open("what.wav", "rb")
     signal = spf.readframes(-1)
     signal = np.frombuffer(signal, np.int16)
@@ -153,9 +292,12 @@ def execute_cmd(cmd):
         else:
             speak("Мои полные возможности будут доступны после соединения с интернетом")
     elif cmd == 'pause':
-        pyautogui.press('stop')
+        pyautogui.press('playpause')
     elif cmd == "meta":
         speak("Цель нашего проекта - облегчение использования современных технологий для пользователя путем использования нашего голосового помощника.")
+    elif cmd == 'settings':
+        settings_vivi(_red,_green,_blue,_volume)
+        speak("Настройки сохранены")
     elif cmd == 'abort':
         return 0
     elif cmd == 'weather':
@@ -355,11 +497,11 @@ def callback():
             ch = execute_cmd(cmd['cmd'],)
 def main():
 
-    speak("Добро пожаловать. Я голосовой помошник Виви")
-    if is_internet_available():
-        speak("Обнаружено соединение с интернетом. Доступны все функции")
-    else:
-        speak("Соединение с интернетом не доступно. Перехожу в оффлайн режим")
+    # speak("Добро пожаловать. Я голосовой помошник Виви")
+    # if is_internet_available():
+    #     speak("Обнаружено соединение с интернетом. Доступны все функции")
+    # else:
+    #     speak("Соединение с интернетом не доступно. Перехожу в оффлайн режим")
 
     while True:
         s = "start"
@@ -367,4 +509,7 @@ def main():
         text = RecognizedSpeech()
         if "виви" in text:
             callback()
-main()
+
+            
+if __name__ == "__main__":
+    main()
