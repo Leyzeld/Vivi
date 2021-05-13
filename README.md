@@ -50,7 +50,7 @@
 
 2. Далее нужно скачать проект с github с помощью команды:
 
-  <code>git clone <ссылка на этот репозиторий></code>
+  <code>git clone https://github.com/Leyzeld/Vivi</code>
   
 3. Переместить папку [model](https://alphacephei.com/vosk/models/vosk-model-small-ru-0.15.zip) в папку с проектом
 
